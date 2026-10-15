@@ -140,6 +140,7 @@ service, then its child, then the pool group.
 | `manifests/` | Namespace, Rollout, stable/canary Services, Gateway and HTTPRoute |
 | `dashboard/` | Argo Rollouts dashboard, patched for PodSecurity and Istio, behind a Gateway |
 | `argocd/application.yaml` | ArgoCD Application for the app, for the GitOps flow |
+| `docs/promotion-options.md` | How ArgoCD and Argo Rollouts fit together, and the ways to promote a canary |
 | `local.example/` | Kustomize overlays that set your hostnames. Copy to `local/` |
 | `scripts/avi-show.sh` | Prints the Avi objects and pool ratios for the HTTPRoute |
 
@@ -363,6 +364,11 @@ Its `ignoreDifferences` are required:
 
 ArgoCD runs the actions under its own RBAC, so you can limit who may
 resume, and it logs who did.
+
+For how the pause, the Suspended health and the Resume action work, how to
+audit who promoted, and the other ways to promote (a PR as the approval,
+automated analysis, Kargo), see
+[docs/promotion-options.md](docs/promotion-options.md).
 
 ## Notes for VKS + AKO
 
