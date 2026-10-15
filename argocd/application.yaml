@@ -1,0 +1,46 @@
+# ArgoCD Application for the demo app. Copy to local/ and set the project,
+# destination cluster and hostnames. See README "GitOps with a manual gate".
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: rollouts-demo
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/warroyo/argo-rollouts-vks-avi-demo
+    targetRevision: main
+    path: manifests
+    kustomize:
+      patches:
+      - target:
+          kind: Gateway
+          name: rollouts-demo
+        patch: |-
+          - op: replace
+            path: /spec/listeners/0/hostname
+            value: rollouts-demo.example.com
+      - target:
+          kind: HTTPRoute
+          name: rollouts-demo
+        patch: |-
+          - op: replace
+            path: /spec/hostnames/0
+            value: rollouts-demo.example.com
+  destination:
+    name: my-cluster
+    namespace: rollouts-demo
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+    # Skip the ignored fields on sync too, not only in the diff.
+    - RespectIgnoreDifferences=true
+  # The Gateway API plugin owns the weights at runtime; without this, selfHeal
+  # resets them to 100/0 in the middle of a canary.
+  ignoreDifferences:
+  - group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    name: rollouts-demo
+    jqPathExpressions:
+    - .spec.rules[].backendRefs[].weight

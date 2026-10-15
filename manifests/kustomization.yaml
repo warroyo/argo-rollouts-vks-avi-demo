@@ -8,3 +8,8 @@ resources:
   - service.yaml
   - rollout.yaml
   - gateway.yaml
+
+# GitOps release: change newTag in a commit to start a canary.
+images:
+  - name: argoproj/rollouts-demo
+    newTag: blue
