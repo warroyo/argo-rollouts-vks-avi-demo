@@ -1,0 +1,25 @@
+# stable/canary pair for Gateway API traffic routing. Both select all app pods;
+# the controller adds rollouts-pod-template-hash to each selector at runtime.
+apiVersion: v1
+kind: Service
+metadata:
+  name: rollouts-demo-stable
+spec:
+  selector:
+    app: rollouts-demo
+  ports:
+  - name: http
+    port: 80
+    targetPort: http
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rollouts-demo-canary
+spec:
+  selector:
+    app: rollouts-demo
+  ports:
+  - name: http
+    port: 80
+    targetPort: http

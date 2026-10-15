@@ -1,0 +1,53 @@
+# Canary with real traffic shifting: the gatewayAPI plugin sets HTTPRoute
+# backendRef weights (stable/canary Services). Demo: change the image tag and
+# promote past the first pause.
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: rollouts-demo
+spec:
+  replicas: 5
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app: rollouts-demo
+  template:
+    metadata:
+      labels:
+        app: rollouts-demo
+    spec:
+      # VKS enforces PodSecurity "restricted" by default.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: rollouts-demo
+        image: argoproj/rollouts-demo:blue
+        ports:
+        - name: http
+          containerPort: 8080
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
+        resources:
+          requests:
+            cpu: 5m
+            memory: 32Mi
+  strategy:
+    canary:
+      stableService: rollouts-demo-stable
+      canaryService: rollouts-demo-canary
+      trafficRouting:
+        plugins:
+          argoproj-labs/gatewayAPI:
+            httpRoute: rollouts-demo
+            namespace: rollouts-demo
+      steps:
+      - setWeight: 10
+      - pause: {}            # manual promote
+      - setWeight: 50
+      - pause: {duration: 30s}
+      - setWeight: 100

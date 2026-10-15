@@ -1,0 +1,31 @@
+# Copy this directory to local/ (gitignored) and set your hostnames.
+# Optional namespace-label patch shown for clusters with a label policy.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../manifests
+
+patches:
+  - target:
+      kind: Gateway
+      name: rollouts-demo
+    patch: |-
+      - op: replace
+        path: /spec/listeners/0/hostname
+        value: rollouts-demo.apps.example.net
+  - target:
+      kind: HTTPRoute
+      name: rollouts-demo
+    patch: |-
+      - op: replace
+        path: /spec/hostnames/0
+        value: rollouts-demo.apps.example.net
+  # Labels a namespace policy on this cluster requires.
+  - target:
+      kind: Namespace
+      name: rollouts-demo
+    patch: |-
+      - op: add
+        path: /metadata/labels/team
+        value: platform

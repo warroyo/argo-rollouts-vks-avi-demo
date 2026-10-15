@@ -1,0 +1,22 @@
+# Copy this directory to local/ (gitignored) and set your hostname.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../dashboard
+
+patches:
+  - target:
+      kind: Gateway
+      name: rollouts-dashboard
+    patch: |-
+      - op: replace
+        path: /spec/listeners/0/hostname
+        value: rollouts-dashboard.apps.example.net
+  - target:
+      kind: HTTPRoute
+      name: rollouts-dashboard
+    patch: |-
+      - op: replace
+        path: /spec/hostnames/0
+        value: rollouts-dashboard.apps.example.net

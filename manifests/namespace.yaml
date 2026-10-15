@@ -1,0 +1,8 @@
+# istio-injection: with AKO istioEnabled, AVI reaches pods over Istio mTLS
+# (503 without a sidecar). Drop it if your AKO does not run with Istio.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: rollouts-demo
+  labels:
+    istio-injection: enabled

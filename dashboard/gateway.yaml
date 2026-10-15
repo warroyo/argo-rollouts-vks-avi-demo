@@ -1,0 +1,27 @@
+# No auth on the dashboard: anyone who reaches this host can promote/abort.
+# Hostname is a placeholder: set yours in an overlay (see local.example/).
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: rollouts-dashboard
+spec:
+  gatewayClassName: avi-lb
+  listeners:
+  - name: http
+    protocol: HTTP
+    port: 80
+    hostname: "rollouts-dashboard.example.com"
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: rollouts-dashboard
+spec:
+  parentRefs:
+  - name: rollouts-dashboard
+  hostnames:
+  - "rollouts-dashboard.example.com"
+  rules:
+  - backendRefs:
+    - name: argo-rollouts-dashboard
+      port: 3100

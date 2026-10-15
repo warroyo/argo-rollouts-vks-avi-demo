@@ -1,0 +1,10 @@
+# Additions on top of the upstream controller install.yaml (applied separately):
+# the Gateway API traffic router plugin and the RBAC it needs.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: argo-rollouts
+
+resources:
+  - argo-rollouts-config.yaml
+  - gatewayapi-rbac.yaml
