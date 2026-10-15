@@ -36,11 +36,22 @@ spec:
     syncOptions:
     # Skip the ignored fields on sync too, not only in the diff.
     - RespectIgnoreDifferences=true
-  # The Gateway API plugin owns the weights at runtime; without this, selfHeal
-  # resets them to 100/0 in the middle of a canary.
+  # Argo Rollouts changes these fields at runtime. The weights matter most:
+  # without the ignore, selfHeal resets them to 100/0 mid-canary.
   ignoreDifferences:
   - group: gateway.networking.k8s.io
     kind: HTTPRoute
     name: rollouts-demo
     jqPathExpressions:
     - .spec.rules[].backendRefs[].weight
+  # The controller pins each Service to a ReplicaSet with this selector key.
+  - group: ""
+    kind: Service
+    name: rollouts-demo-stable
+    jqPathExpressions:
+    - .spec.selector["rollouts-pod-template-hash"]
+  - group: ""
+    kind: Service
+    name: rollouts-demo-canary
+    jqPathExpressions:
+    - .spec.selector["rollouts-pod-template-hash"]

@@ -139,6 +139,7 @@ service, then its child, then the pool group.
 | `controller/` | Controller config that loads the Gateway API plugin, and the RBAC it needs |
 | `manifests/` | Namespace, Rollout, stable/canary Services, Gateway and HTTPRoute |
 | `dashboard/` | Argo Rollouts dashboard, patched for PodSecurity and Istio, behind a Gateway |
+| `argocd/application.yaml` | ArgoCD Application for the app, for the GitOps flow |
 | `local.example/` | Kustomize overlays that set your hostnames. Copy to `local/` |
 | `scripts/avi-show.sh` | Prints the Avi objects and pool ratios for the HTTPRoute |
 
@@ -283,6 +284,85 @@ seq 200 | xargs -P 25 -I{} curl -s http://<app-host>/color \
 
 Image tags: `blue`, `yellow`, `red`, `green`, `purple`, `orange`, and
 `bad-*` variants that return errors.
+
+## GitOps with a manual gate
+
+Same demo, driven by ArgoCD: a commit starts the canary, and a person
+promotes it with ArgoCD's **Resume** action. Nobody runs `kubectl` against
+the Rollout.
+
+```mermaid
+sequenceDiagram
+    actor D as Developer
+    participant G as Git
+    participant A as ArgoCD
+    participant R as Rollout + plugin
+    actor O as Approver
+
+    D->>G: commit newTag: yellow
+    G-->>A: change detected
+    A->>R: sync new image
+    R->>R: canary 10% (HTTPRoute 90/10)
+    Note over A: app health Suspended
+    O->>A: Resume action on the Rollout
+    A->>R: clear the pause
+    R->>R: 50% → 100% → promote
+    Note over A: app health Healthy
+```
+
+### Set up the Application
+
+The controller (setup steps 1-2) still goes in by hand or through your
+platform's GitOps, because it needs CRDs and ClusterRoles. The app goes
+through ArgoCD:
+
+```sh
+cp argocd/application.yaml local/argocd-application.yaml
+# edit: project, destination cluster, hostnames (and any namespace labels)
+kubectl apply -n <argocd-namespace> -f local/argocd-application.yaml
+```
+
+The Application builds `manifests/` with inline kustomize patches for your
+hostnames, so it can point at this repo (or your fork) directly.
+
+Its `ignoreDifferences` are required:
+
+- **HTTPRoute `backendRefs[].weight`.** The plugin changes the weights
+  during a canary. Without the ignore, `selfHeal` puts them back to 100/0.
+  `RespectIgnoreDifferences=true` makes the sync skip them too, not only the
+  diff.
+- **Service selector `rollouts-pod-template-hash`.** The controller adds it
+  to both Services. Without the ignore, the app stays `OutOfSync`.
+
+### Run it
+
+1. **Release:** change the tag in `manifests/kustomization.yaml` and push:
+
+   ```yaml
+   images:
+     - name: argoproj/rollouts-demo
+       newTag: yellow
+   ```
+
+   ArgoCD syncs it. The Rollout goes to 10% and pauses, the HTTPRoute is at
+   90/10, and ArgoCD shows the app as **Suspended** and still **Synced**.
+
+2. **Promote:** in the ArgoCD UI, open the app, click the `rollouts-demo`
+   Rollout, then **⋮ > Resume**. Or with the CLI:
+
+   ```sh
+   argocd app actions run rollouts-demo resume \
+     --kind Rollout --resource-name rollouts-demo --group argoproj.io
+   ```
+
+   The Rollout goes on to 50%, waits 30s, and goes to 100%. The app returns
+   to **Healthy**.
+
+3. **Reject:** run the **abort** action the same way, then revert the commit
+   so git matches the stable tag again.
+
+ArgoCD runs the actions under its own RBAC, so you can limit who may
+resume, and it logs who did.
 
 ## Notes for VKS + AKO
 
