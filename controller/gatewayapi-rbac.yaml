@@ -1,5 +1,5 @@
-# The plugin edits HTTPRoute backendRef weights and keeps its state in a
-# ConfigMap (argo-gatewayapi-configmap) in the Rollout's namespace.
+# The plugin runs in the controller and patches HTTPRoute weights as its SA.
+# ConfigMap access is only for header/mirror routes (argo-gatewayapi-configmap).
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:

@@ -74,8 +74,11 @@ sequenceDiagram
 1. Both Services select `app: rollouts-demo`. The Rollouts controller adds
    `rollouts-pod-template-hash` to each selector, so `-stable` sees only the
    stable pods and `-canary` sees only the canary pods.
-2. At each `setWeight` step, the Gateway API plugin rewrites the two
-   `backendRefs` weights on the HTTPRoute: 90/10, then 50/50, then 100/0.
+2. At each `setWeight` step, the controller calls the Gateway API plugin,
+   which rewrites the two `backendRefs` weights on the HTTPRoute: 90/10,
+   then 50/50, then 100/0. The plugin keeps no state of its own: the
+   controller records the desired and verified weights in the Rollout's
+   `status.canary.weights`, and re-applies them on every resync.
 3. AKO turns the two backends into two Avi pools in one pool group, and sets
    each pool's `ratio` to the backend's weight. Avi splits requests by ratio,
    so traffic share does not depend on pod count.
@@ -175,9 +178,15 @@ kubectl -n argo-rollouts logs deploy/argo-rollouts | grep -i plugin
 ```
 
 The controller downloads the plugin from GitHub at startup and checks its
-sha256, so the cluster needs egress to `github.com`. `controller/` also
-grants the controller rights on HTTPRoutes and ConfigMaps, which its default
-ClusterRole lacks.
+sha256, so the cluster needs egress to `github.com`.
+
+The plugin runs as a child process of the controller and patches HTTPRoutes
+with the controller's ServiceAccount, whose default ClusterRole cannot write
+them. `controller/gatewayapi-rbac.yaml` adds that. It also allows
+ConfigMaps, which the plugin needs only for header-based or mirror routes
+(`setHeaderRoute`, `setMirrorRoute`), where it stores managed routes in
+`argo-gatewayapi-configmap`. A weight-only canary like this one creates no
+ConfigMap.
 
 ### 3. Install the kubectl plugin
 
@@ -235,6 +244,11 @@ kubectl -n rollouts-demo get httproute rollouts-demo \
   -o jsonpath='{range .spec.rules[0].backendRefs[*]}{.name}={.weight} {end}{"\n"}'
 # rollouts-demo-stable=90 rollouts-demo-canary=10
 ```
+
+The plugin writes the route with field manager `gatewayAPI`
+(`kubectl get httproute rollouts-demo --show-managed-fields -o yaml`), and
+the controller logs `[SetWeight] plugin "argoproj-labs/gatewayAPI"` and
+`Desired weight (stepIdx: 1) 10 verified`.
 
 Then promote. It goes to 50/50, waits 30s, then moves to 100%:
 
